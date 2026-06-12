@@ -25,8 +25,8 @@ class CitiesRepository:
 
             data = [
                 CityResponse(
-                    id=item[0],
-                    name=item[1]
+                    city_id=item[0],
+                    city_name=item[1]
                 )
                 for item in result
             ]

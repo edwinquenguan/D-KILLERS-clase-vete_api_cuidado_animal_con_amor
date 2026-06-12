@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/breeds", tags=["Razas"])
     "/",
     dependencies=[
         Depends(RateLimiter(times=30, seconds=60)),
-        Depends(require_roles(["Admin", "Veterinario", "Recepcionista"]))
+        Depends(require_roles(["Admin", "Veterinario", "Recepcionista", "Cliente"]))
     ]
 )
 def get_all_breeds(filters: FilterBreedsSchema = Depends()):

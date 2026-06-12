@@ -18,6 +18,13 @@ class CreateAppointmentSchema(BaseModel):
     reason: str
 
 
+class RequestAppointmentSchema(BaseModel):
+    pet_id: int
+    appointment_date: str
+    appointment_time: str
+    reason: str
+
+
 class UpdateAppointmentSchema(BaseModel):
     user_id: Optional[int] = None
     appointment_date: Optional[str] = None

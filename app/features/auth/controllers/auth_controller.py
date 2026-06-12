@@ -1,7 +1,7 @@
 from fastapi import HTTPException, Request, Response
 from pydantic import EmailStr
 
-from app.features.auth.models.auth_model import VerifyRoleModel
+from app.features.auth.models.auth_model import RegisterClientModel, VerifyRoleModel
 from app.features.auth.services.auth_service import AuthService
 from app.features.users.services.users_service import UsersService
 
@@ -82,6 +82,13 @@ class AuthController:
                 "role": payload["role"],
             }
         }
+
+    @staticmethod
+    def register_client(data: RegisterClientModel, response: Response):
+        error, success, message, user_data = AuthService.register_client(data, response)
+        if error or not success:
+            raise HTTPException(status_code=400, detail=error or "Error al registrar")
+        return {"success": True, "message": message, "data": user_data}
 
     @staticmethod
     async def recover_password(email: EmailStr):

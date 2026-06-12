@@ -16,7 +16,7 @@ router = APIRouter(
     "/",
     dependencies=[
         Depends(RateLimiter(times=30, seconds=60)),
-        Depends(require_roles(["Admin"]))
+        Depends(require_roles(["Admin", "Veterinario", "Recepcionista"]))
     ]
 )
 def get_all_users(filters: UsersFiltersSchema = Depends()):
@@ -46,13 +46,10 @@ def get_all_roles():
     return UsersController.get_all_roles()
 
 
-# Endpoint para obtener todas las ciudades existentes
+# Endpoint para obtener todas las ciudades — público (lo usan registro y formularios)
 @router.get(
     "/cities",
-    dependencies=[
-        Depends(RateLimiter(times=30, seconds=60)),
-        Depends(require_roles(["Admin"]))
-    ]
+    dependencies=[Depends(RateLimiter(times=30, seconds=60))]
 )
 def get_all_cities():
     return UsersController.get_all_cities()

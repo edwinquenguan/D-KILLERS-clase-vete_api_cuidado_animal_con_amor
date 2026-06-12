@@ -1,6 +1,6 @@
 from app.utils.logger import get_logger
 from app.utils.date_formatter import date_formatter
-from app.features.appointments.models.appointments_schema import CreateAppointmentSchema, FilterAppointmentsSchema, UpdateAppointmentSchema
+from app.features.appointments.models.appointments_schema import CreateAppointmentSchema, FilterAppointmentsSchema, RequestAppointmentSchema, UpdateAppointmentSchema
 from app.features.appointments.models.appointments_response import AppointmentResponse
 
 logger = get_logger("appointments.repository")
@@ -23,7 +23,7 @@ FROM APPOINTMENTS AS a
 INNER JOIN PETS AS p ON a.pet_id = p.pet_id
 INNER JOIN SPECIES AS s ON p.species_id = s.species_id
 INNER JOIN OWNERS AS o ON p.owner_id = o.owner_id
-INNER JOIN USERS AS u ON a.user_id = u.user_id
+LEFT JOIN USERS AS u ON a.user_id = u.user_id
 """
 
 
@@ -73,6 +73,23 @@ class AppointmentsRepository:
             cursor.close()
 
     @staticmethod
+    def find_appointments_by_user_id(user_id: int, connection):
+        cursor = connection.cursor()
+        try:
+            query = (
+                _BASE_QUERY +
+                " WHERE o.owner_email = (SELECT user_email FROM USERS WHERE user_id = %s)"
+                " ORDER BY a.appointment_date DESC"
+            )
+            cursor.execute(query, (user_id,))
+            return None, [_row_to_appt(r) for r in cursor.fetchall()]
+        except Exception as e:
+            logger.error("Error en find_appointments_by_user_id: %s", e, exc_info=True)
+            return "Error al obtener las citas del cliente", None
+        finally:
+            cursor.close()
+
+    @staticmethod
     def find_appointment_by_id(appointment_id: int, connection):
         cursor = connection.cursor()
         try:
@@ -101,6 +118,23 @@ class AppointmentsRepository:
         except Exception as e:
             logger.error("Error en create_appointment: %s", e, exc_info=True)
             return "Error al crear la cita", False, None
+        finally:
+            cursor.close()
+
+    @staticmethod
+    def request_appointment(appt_data: RequestAppointmentSchema, connection):
+        data = appt_data.model_dump()
+        cursor = connection.cursor()
+        try:
+            cursor.execute(
+                """INSERT INTO APPOINTMENTS (pet_id, user_id, appointment_date, appointment_time, appointment_reason, appointment_status)
+                   VALUES (%s, NULL, %s, %s, %s, 1)""",
+                (data["pet_id"], data["appointment_date"], data["appointment_time"], data["reason"])
+            )
+            return None, True, "Solicitud de cita enviada correctamente"
+        except Exception as e:
+            logger.error("Error en request_appointment: %s", e, exc_info=True)
+            return "Error al enviar la solicitud de cita", False, None
         finally:
             cursor.close()
 

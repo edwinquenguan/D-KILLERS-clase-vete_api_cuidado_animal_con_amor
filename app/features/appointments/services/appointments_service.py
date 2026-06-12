@@ -2,7 +2,7 @@ from app.utils.logger import get_logger
 from app.core.database import get_connection
 from app.core.exception import ServiceError
 from app.features.appointments.repositories.appointments_repository import AppointmentsRepository
-from app.features.appointments.models.appointments_schema import CreateAppointmentSchema, FilterAppointmentsSchema, UpdateAppointmentSchema
+from app.features.appointments.models.appointments_schema import CreateAppointmentSchema, FilterAppointmentsSchema, RequestAppointmentSchema, UpdateAppointmentSchema
 
 logger = get_logger("appointments.service")
 
@@ -26,6 +26,22 @@ class AppointmentsService:
             connection.close()
 
     @staticmethod
+    def get_my_appointments(user_id: int):
+        connection = get_connection()
+        try:
+            error, data = AppointmentsRepository.find_appointments_by_user_id(user_id, connection)
+            if error:
+                raise ServiceError(error)
+            return None, data
+        except ServiceError as e:
+            return e.message, None
+        except Exception as e:
+            logger.error("Error en get_my_appointments: %s", e, exc_info=True)
+            return "Error al obtener tus citas", None
+        finally:
+            connection.close()
+
+    @staticmethod
     def get_appointment_by_id(appointment_id: int):
         connection = get_connection()
         try:
@@ -40,6 +56,25 @@ class AppointmentsService:
         except Exception as e:
             logger.error("Error en get_appointment_by_id: %s", e, exc_info=True)
             return "Error al obtener la cita", None
+        finally:
+            connection.close()
+
+    @staticmethod
+    def request_appointment(appt_data: RequestAppointmentSchema):
+        connection = get_connection()
+        try:
+            error, success, message = AppointmentsRepository.request_appointment(appt_data, connection)
+            if error or not success:
+                raise ServiceError(error)
+            connection.commit()
+            return None, True, "Solicitud de cita enviada correctamente"
+        except ServiceError as e:
+            connection.rollback()
+            return e.message, False, None
+        except Exception as e:
+            connection.rollback()
+            logger.error("Error en request_appointment: %s", e, exc_info=True)
+            return "Error al enviar la solicitud de cita", False, None
         finally:
             connection.close()
 

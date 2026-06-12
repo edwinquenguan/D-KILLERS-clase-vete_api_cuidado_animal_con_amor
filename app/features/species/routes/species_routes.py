@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/species", tags=["Especies"])
     "/",
     dependencies=[
         Depends(RateLimiter(times=30, seconds=60)),
-        Depends(require_roles(["Admin", "Veterinario", "Recepcionista"]))
+        Depends(require_roles(["Admin", "Veterinario", "Recepcionista", "Cliente"]))
     ]
 )
 def get_all_species(filters: FilterSpeciesSchema = Depends()):

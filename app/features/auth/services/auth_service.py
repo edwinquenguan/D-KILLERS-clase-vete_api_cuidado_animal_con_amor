@@ -1,14 +1,17 @@
 from datetime import timedelta
 
+import bcrypt
 import jwt
 from jwt import PyJWTError
 from pydantic import EmailStr
 from fastapi import Request, Response
 
 from app.core.config import settings
+from app.core.database import get_connection
 from app.core.exception import ServiceError
 from app.core.security import create_access_token, create_refresh_token, set_auth_cookies, verify_password
-from app.features.auth.models.auth_model import VerifyRoleModel
+from app.features.auth.models.auth_model import RegisterClientModel, VerifyRoleModel
+from app.features.users.repositories.users_repository import UsersRepository
 from app.features.users.services.users_service import UsersService
 from app.tasks.email_tasks import recovery_password_email
 
@@ -121,6 +124,67 @@ class AuthService:
 
         except Exception as e:
             return "Error al intentar cerrar la sesión", False, None
+
+    @staticmethod
+    def register_client(data: RegisterClientModel, response: Response):
+        connection = get_connection()
+        try:
+            error, existing = UsersRepository.find_user_by_email(data.email, connection)
+            if existing:
+                return "Este correo ya está registrado", False, None, None
+
+            hashed = bcrypt.hashpw(
+                data.password.encode("utf-8"), bcrypt.gensalt(rounds=12)
+            ).decode("utf-8")
+
+            cursor = connection.cursor()
+            cursor.execute(
+                """INSERT INTO USERS
+                   (rol_id, user_name, user_first_surname, user_second_surname,
+                    user_phone, user_email, user_address, user_password, user_city)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (4, data.name, data.first_surname, data.second_surname or "",
+                 data.phone, data.email, data.address or "Sin especificar",
+                 hashed, data.city)
+            )
+            cursor.close()
+
+            # Crear entrada en OWNERS si no existe ya (para ligar mascotas y citas)
+            cursor2 = connection.cursor()
+            cursor2.execute("SELECT owner_id FROM OWNERS WHERE owner_email = %s", (data.email,))
+            if not cursor2.fetchone():
+                cursor2.execute(
+                    """INSERT INTO OWNERS
+                       (owner_name, owner_first_surname, owner_second_surname,
+                        owner_phone, owner_email, owner_address, owner_city)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                    (data.name, data.first_surname, data.second_surname or "",
+                     data.phone, data.email, data.address or "Sin especificar",
+                     data.city)
+                )
+            cursor2.close()
+            connection.commit()
+
+            expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE)
+            error2, user = UsersRepository.find_user_by_email(data.email, connection)
+            access_token  = create_access_token({"sub": str(user[1]), "role": user[0]}, expires_delta=expires)
+            refresh_token = create_refresh_token({"sub": str(user[1]), "role": user[0]})
+            set_auth_cookies(response, access_token, refresh_token)
+
+            return None, True, "Registro exitoso", {
+                "user_id": user[1],
+                "name": f"{user[2]} {user[3]}",
+                "email": user[5],
+                "role": user[0],
+            }
+        except ServiceError as e:
+            connection.rollback()
+            return e.message, False, None, None
+        except Exception:
+            connection.rollback()
+            return "Error al registrar el usuario", False, None, None
+        finally:
+            connection.close()
 
     @staticmethod
     def recover_password(email: EmailStr):

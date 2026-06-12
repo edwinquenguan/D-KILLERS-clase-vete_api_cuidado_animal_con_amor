@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from app.features.pets.services.pets_service import PetsService
-from app.features.pets.models.pets_schema import CreatePetSchema, FilterPetsSchema, UpdatePetSchema
+from app.features.pets.models.pets_schema import CreatePetSchema, FilterPetsSchema, RegisterMyPetSchema, UpdatePetSchema
 
 
 class PetsController:
@@ -13,11 +13,25 @@ class PetsController:
         return {"data": data}
 
     @staticmethod
+    def get_my_pets(user_id: int):
+        error, data = PetsService.get_my_pets(user_id)
+        if error:
+            raise HTTPException(status_code=404, detail=error)
+        return {"data": data}
+
+    @staticmethod
     def get_pet_by_id(pet_id: int):
         error, data = PetsService.get_pet_by_id(pet_id)
         if error:
             raise HTTPException(status_code=404, detail=error)
         return {"data": data}
+
+    @staticmethod
+    def register_my_pet(user_id: int, pet_data: RegisterMyPetSchema):
+        error, success, message = PetsService.register_my_pet(user_id, pet_data)
+        if error:
+            raise HTTPException(status_code=400, detail=error)
+        return {"success": success, "message": message}
 
     @staticmethod
     def create_pet(pet_data: CreatePetSchema):

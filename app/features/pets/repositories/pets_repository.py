@@ -1,6 +1,6 @@
 from app.utils.logger import get_logger
 from app.utils.date_formatter import date_formatter
-from app.features.pets.models.pets_schema import CreatePetSchema, FilterPetsSchema, UpdatePetSchema
+from app.features.pets.models.pets_schema import CreatePetSchema, FilterPetsSchema, RegisterMyPetSchema, UpdatePetSchema
 from app.features.pets.models.pets_response import PetResponse
 
 logger = get_logger("pets.repository")
@@ -63,6 +63,31 @@ class PetsRepository:
             cursor.close()
 
     @staticmethod
+    def find_pets_by_user_id(user_id: int, connection):
+        cursor = connection.cursor()
+        try:
+            cursor.execute(
+                """SELECT p.pet_id, p.pet_name, p.pet_birthdate, p.pet_sex, p.pet_color, p.pet_weight,
+                          p.pet_status, p.pet_date,
+                          o.owner_id, CONCAT(o.owner_name,' ',o.owner_first_surname), o.owner_phone, o.owner_email,
+                          s.species_id, s.species_name, b.breed_id, b.breed_name
+                   FROM PETS AS p
+                   INNER JOIN OWNERS AS o ON p.owner_id = o.owner_id
+                   INNER JOIN SPECIES AS s ON p.species_id = s.species_id
+                   INNER JOIN BREEDS AS b ON p.breed_id = b.breed_id
+                   WHERE o.owner_email = (SELECT user_email FROM USERS WHERE user_id = %s)
+                     AND p.pet_status = 2
+                   ORDER BY p.pet_name ASC""",
+                (user_id,)
+            )
+            return None, [_row_to_pet(r) for r in cursor.fetchall()]
+        except Exception as e:
+            logger.error("Error en find_pets_by_user_id: %s", e, exc_info=True)
+            return "Error al obtener tus mascotas", None
+        finally:
+            cursor.close()
+
+    @staticmethod
     def find_pet_by_id(pet_id: int, connection):
         cursor = connection.cursor()
         try:
@@ -85,6 +110,32 @@ class PetsRepository:
         except Exception as e:
             logger.error("Error en find_pet_by_id: %s", e, exc_info=True)
             return "Error al obtener la mascota", None
+        finally:
+            cursor.close()
+
+    @staticmethod
+    def create_pet_for_client(user_id: int, pet_data: RegisterMyPetSchema, connection):
+        cursor = connection.cursor()
+        try:
+            cursor.execute(
+                "SELECT owner_id FROM OWNERS WHERE owner_email = (SELECT user_email FROM USERS WHERE user_id = %s)",
+                (user_id,)
+            )
+            owner_row = cursor.fetchone()
+            if not owner_row:
+                return "No se encontró tu registro como propietario. Asegúrate de haberte registrado correctamente.", False, None
+            owner_id = owner_row[0]
+            data = pet_data.model_dump()
+            cursor.execute(
+                """INSERT INTO PETS (owner_id, species_id, breed_id, pet_name, pet_birthdate, pet_sex, pet_color, pet_weight)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (owner_id, data["species_id"], data["breed_id"], data["name"],
+                 data["birthdate"], data["sex"], data["color"], data["weight"])
+            )
+            return None, True, "Mascota registrada correctamente"
+        except Exception as e:
+            logger.error("Error en create_pet_for_client: %s", e, exc_info=True)
+            return "Error al registrar la mascota", False, None
         finally:
             cursor.close()
 

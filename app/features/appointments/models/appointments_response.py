@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -14,5 +15,5 @@ class AppointmentResponse(BaseModel):
     owner_id: int
     owner_full_name: str
     owner_phone: str
-    vet_id: int
-    vet_name: str
+    vet_id: Optional[int] = None
+    vet_name: Optional[str] = None

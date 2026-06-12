@@ -20,6 +20,16 @@ class CreatePetSchema(BaseModel):
     weight: Decimal
 
 
+class RegisterMyPetSchema(BaseModel):
+    species_id: int
+    breed_id: int
+    name: str
+    birthdate: str
+    sex: str
+    color: str
+    weight: Decimal
+
+
 class UpdatePetSchema(BaseModel):
     name: Optional[str] = None
     birthdate: Optional[str] = None

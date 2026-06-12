@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi_limiter.depends import RateLimiter
 
 from app.features.auth.controllers.auth_controller import AuthController
-from app.features.auth.models.auth_model import LoginModel, RecoverPassword, VerifyRoleModel
+from app.features.auth.models.auth_model import LoginModel, RecoverPassword, RegisterClientModel, VerifyRoleModel
 from app.middlewares.jwt_middleware import verify_jwt
 from app.middlewares.roles_middleware import require_roles
 
@@ -11,6 +11,15 @@ router = APIRouter(
     prefix="/api/auth",
     tags=["Auth"]
 )
+
+
+# Endpoint para registro de clientes
+@router.post(
+    "/register",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))]
+)
+def register_client(data: RegisterClientModel, response: Response):
+    return AuthController.register_client(data, response)
 
 
 # Endpoint para loguearse

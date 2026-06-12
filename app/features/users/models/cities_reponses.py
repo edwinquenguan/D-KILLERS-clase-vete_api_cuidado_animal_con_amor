@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 class CityResponse(BaseModel):
-    id: int
-    name: str
+    city_id: int
+    city_name: str
